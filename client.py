@@ -2,7 +2,7 @@
 Клиент для отправки и получения метрик по простому текстовому протоколу.
 
 Класс Client инкапсулирует TCP‑соединение с сервером метрик и реализует команды
-`put` и `get` для записи и чтения данных.
+put и get для записи и чтения данных.
 """
 import time
 import socket
@@ -12,7 +12,7 @@ class Client:
     """
     Клиент для взаимодействия с сервером метрик по TCP.
 
-    Клиент отправляет команды `put` и `get` в текстовом формате
+    Клиент отправляет команды put и get в текстовом формате
     и обрабатывает ответы сервера.
     """
 
@@ -82,7 +82,7 @@ class Client:
         :type sock: socket.socket
         :return: полный ответ сервера
         :rtype: str
-        :raises ClientError: Если первая строка != "ok"
+        :raises ClientError: Если первая строка != 'ok'
         """
         response = self._recv_all(sock)
         lines = response.split("\n")
@@ -91,8 +91,43 @@ class Client:
         return response
 
     def get(self, key):
-        ...
+        """
+        Получение метрик с сервера
+
+         Формирует команду 'get <key>\\n'
+        :param key: Значение метрики или *
+        :type key: str
+        :return: Все метрики, удовлетворяющие ключу
+        :rtype: dict
+        :raises ClientError: Ошибка ответа сервера
+        """
+        cmd = f"get {key}\n"
+
+        with socket.create_connection((self.host, self.port), self.timeout) as sock:
+            sock.sendall(cmd.encode("UTF-8"))
+
+            result = {}
+            response = self._read_and_check(sock)
+            lines = response.split("\n")
+
+            for line in lines[1:]:
+                if not line:
+                    continue
+                metric, value, timestamp = line.split()
+                value = float(value)
+                timestamp = int(timestamp)
+                result.setdefault(metric, []).append((timestamp, value))
+
+            for metric in result:
+                result[metric].sort(key=lambda item: item[0])
+
+            return result
+
 
 class ClientError(Exception):
-    pass
+    """
+    Исключения клиента при ошибках сервера
+    """
+    def __init__(self, massge="Ошибка клиента"):
+        super(ClientError, self).__init__(massge)
 
