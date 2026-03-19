@@ -78,6 +78,7 @@ class Client:
     def _read_and_check(self, sock):
         """
         Читает полный ответ от сервера и проверяет, что первая строка 'ok'
+
         :param sock: открытое TCP-соединение
         :type sock: socket.socket
         :return: полный ответ сервера
@@ -94,11 +95,12 @@ class Client:
         """
         Получение метрик с сервера
 
-         Формирует команду 'get <key>\\n'
+        Формирует команду 'get <key>\\n'
+
         :param key: Значение метрики или *
         :type key: str
         :return: Все метрики, удовлетворяющие ключу
-        :rtype: dict
+        :rtype: dict[str, list[tuple[int, float]]]
         :raises ClientError: Ошибка ответа сервера
         """
         cmd = f"get {key}\n"
