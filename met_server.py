@@ -1,15 +1,37 @@
 """
 Сервер по приёму метрик.
 
-...
+Модуль реализует:
+- функцию :func:`process_request`, которая обрабатывает команды ``put`` и ``get`` над
+  внутренним хранилищем метрик;
+- класс :class:`ClientServerProtocol` на базе :mod:`asyncio`, который принимает
+  запросы от клиентов по TCP и передаёт их в :func:`process_request`;
+- функцию :func:`run_server`, запускающую асинхронный TCP‑сервер на указанном
+  хосте и порту.
 """
 import asyncio
 storage = {}
 
 def process_request(request, storage):
     """
-    request: строка типа "put key 10.0 123\n" или "get key\n"
-    storage: словарь с метриками, который мы будем обновлять/читать
+    Обрабатывает одну текстовую команду протокола метрик.
+
+    Поддерживаются команды::
+
+        put <key> <value> <timestamp>\\n
+        get <key>\\n
+
+    В случае команды ``put`` значение метрики добавляется во внутреннее
+    хранилище. В случае ``get`` формируется текстовый ответ со всеми
+    подходящими метриками или пустой ответ, если данных нет.
+
+    :param request: строка запроса, например ``"put test 10.0 1\\n"`` или ``"get *\\n"``
+    :type request: str
+    :param storage: словарь с метриками, изменяемое хранилище вида
+                    ``{metric_name: [(timestamp, value), ...], ...}``
+    :type storage: dict[str, list[tuple[int, float]]]
+    :return: строка ответа сервера в формате протокола
+    :rtype: str
     """
 
     # убираем лишние пробелы и \n
@@ -73,16 +95,49 @@ def process_request(request, storage):
 
 
 class ClientServerProtocol(asyncio.Protocol):
+    """
+    Реализация протокола asyncio для сервера метрик.
+
+    Экземпляр этого класса создаётся для каждого клиентского TCP‑соединения.
+    Полученные от клиента данные передаются в :func:`process_request`, а
+    сформированный ответ отправляется обратно по тому же соединению.
+    """
     def connection_made(self, transport):
+        """
+        Вызывается при установлении нового соединения с клиентом.
+
+        :param transport: транспорт asyncio для записи в TCP‑соединение
+        :type transport: asyncio.transports.Transport
+        """
         self.transport = transport
 
     def data_received(self, data):
+        """
+        Вызывается при получении данных от клиента.
+
+        Декодирует байты в строку, передаёт запрос в :func:`process_request`,
+        кодирует строку-ответ и отправляет её обратно клиенту.
+
+        :param data: данные, полученные от клиента
+        :type data: bytes
+        """
         request = data.decode()
         response = process_request(request, storage)
         self.transport.write(response.encode())
 
 
 async def _run_async_server(host, port):
+    """
+    Запускает асинхронный TCP‑сервер метрик.
+
+    Создаёт сервер, который принимает входящие соединения и обрабатывает
+    запросы с помощью :class:`ClientServerProtocol`.
+
+    :param host: адрес, на котором нужно слушать соединения
+    :type host: str
+    :param port: номер порта сервера
+    :type port: int
+    """
     loop = asyncio.get_running_loop()
     server = await loop.create_server(ClientServerProtocol, host, port)
 
@@ -94,6 +149,17 @@ async def _run_async_server(host, port):
 
 
 def run_server(host, port):
+    """
+    Запускает сервер метрик в текущем процессе.
+
+    Обёртка над :func:`_run_async_server`, которая создаёт и управляет
+    циклом событий :mod:`asyncio` с помощью :func:`asyncio.run`.
+
+    :param host: адрес, на котором нужно слушать соединения
+    :type host: str
+    :param port: номер порта сервера
+    :type port: int
+    """
     asyncio.run(_run_async_server(host, port))
 
 
