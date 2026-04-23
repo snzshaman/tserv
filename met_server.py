@@ -1,3 +1,8 @@
+"""
+Сервер по приёму метрик.
+
+...
+"""
 storage = {}
 
 def process_request(request, storage):
@@ -36,12 +41,40 @@ def process_request(request, storage):
 
         return "ok\n\n"
     elif command == "get":
-        # тут будет get
-        ...
+        if len(parts) != 2:
+            return "error\nwrong command\n\n"
+
+        _, key = parts
+
+        lines = ["ok"]
+
+        # выбираем, какие ключи смотреть
+        if key == "*":
+            items = storage.items()
+        else:
+            # если ключа нет — просто ok\n\n
+            if key not in storage:
+                return "ok\n\n"
+            items = [(key, storage[key])]
+
+        # проходим по выбранным метрикам
+        for metric, values in items:
+            # values — это список [(timestamp, value), ...]
+            # пока без сортировки
+            for timestamp, value in values:
+                lines.append(f"{metric} {value} {timestamp}")
+
+        # собираем ответ
+        return "\n".join(lines) + "\n\n"
     else:
         # неизвестная команда
         return "error\nwrong command\n\n"
 
 if __name__ == '__main__':
-    print(process_request("put test_key 10.0 1503319740\n", storage))
-    print(storage)
+    # print(process_request("put test_key 10.0 1503319740\n", storage))
+    # print(storage)
+    print(process_request("put k1 10.0 1\n", storage))
+    print(process_request("put k1 20.0 2\n", storage))
+    print(process_request("get k1\n", storage))
+    print(process_request("get *\n", storage))
+    print(process_request("get k2\n", storage))
