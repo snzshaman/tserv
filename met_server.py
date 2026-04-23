@@ -3,6 +3,7 @@
 
 ...
 """
+import asyncio
 storage = {}
 
 def process_request(request, storage):
@@ -59,9 +60,9 @@ def process_request(request, storage):
 
         # проходим по выбранным метрикам
         for metric, values in items:
-            # values — это список [(timestamp, value), ...]
-            # пока без сортировки
-            for timestamp, value in values:
+            # гарантируем порядок по timestamp
+            values_sorted = sorted(values, key=lambda item: item[0])
+            for timestamp, value in values_sorted:
                 lines.append(f"{metric} {value} {timestamp}")
 
         # собираем ответ
@@ -70,11 +71,42 @@ def process_request(request, storage):
         # неизвестная команда
         return "error\nwrong command\n\n"
 
-if __name__ == '__main__':
-    # print(process_request("put test_key 10.0 1503319740\n", storage))
-    # print(storage)
-    print(process_request("put k1 10.0 1\n", storage))
-    print(process_request("put k1 20.0 2\n", storage))
-    print(process_request("get k1\n", storage))
-    print(process_request("get *\n", storage))
-    print(process_request("get k2\n", storage))
+
+class ClientServerProtocol(asyncio.Protocol):
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def data_received(self, data):
+        request = data.decode()
+        response = process_request(request, storage)
+        self.transport.write(response.encode())
+
+
+async def _run_async_server(host, port):
+    loop = asyncio.get_running_loop()
+    server = await loop.create_server(ClientServerProtocol, host, port)
+
+    try:
+        await server.serve_forever()
+    finally:
+        server.close()
+        await server.wait_closed()
+
+
+def run_server(host, port):
+    asyncio.run(_run_async_server(host, port))
+
+
+if __name__ == "__main__":
+    run_server("127.0.0.1", 8888)
+
+# if __name__ == '__main__':
+#     # print(process_request("put test_key 10.0 1503319740\n", storage))
+#     # print(storage)
+#     print(process_request("put k2 10.0 2\n", storage))
+#     print(process_request("put k1 20.0 1\n", storage))
+#     print(process_request("put k1 10.0 2\n", storage))
+#     print(process_request("put k2 20.0 1\n", storage))
+#     print(process_request("get k1\n", storage))
+#     print(process_request("get *\n", storage))
+#     print(process_request("get k2\n", storage))
