@@ -60,9 +60,16 @@ def process_request(request, storage):
 
         # добавляем в storage
         storage.setdefault(key, [])
-        storage[key].append((timestamp, value))
+
+        for i, (ts, _) in enumerate(storage[key]):
+            if ts == timestamp:
+                storage[key][i] = (timestamp, value)
+                break
+        else:
+            storage[key].append((timestamp, value))
 
         return "ok\n\n"
+
     elif command == "get":
         if len(parts) != 2:
             return "error\nwrong command\n\n"
@@ -107,7 +114,7 @@ class ClientServerProtocol(asyncio.Protocol):
         Вызывается при установлении нового соединения с клиентом.
 
         :param transport: транспорт asyncio для записи в TCP‑соединение
-        :type transport: asyncio.transports.Transport
+        :type transport: asyncio.transports.
         """
         self.transport = transport
 

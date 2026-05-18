@@ -46,7 +46,7 @@ class Client:
         :type timestamp: int | None
         :return: ничего не возвращает при успешной отправке
         :rtype: None
-        :raises ClientError: Ошибка ответа сервера
+        :raises ClientError: Ошибка клиента
         """
         if timestamp is None:
             timestamp = int(time.time())
@@ -88,7 +88,7 @@ class Client:
         response = self._recv_all(sock)
         lines = response.split("\n")
         if not lines or lines[0] != "ok":
-            raise ClientError("Сервер вернул ошибку")
+            raise ClientError("Ошибка клиента")
         return response
 
     def get(self, key):
